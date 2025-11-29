@@ -143,12 +143,12 @@ jobs:
                 git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
                 
                 # CRIAÇÃO DO ARQUIVO .ENV COM SECRETS (CRUCIAL!)
-                cat <<- EOF > trabalho_ci_cd/.env # <<-- Use o hífen
-                MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-                MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
-                MYSQL_USER=${{ secrets.MYSQL_USER }}
-                MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
-            EOF # <<-- REMOVA T
+                cat <<-EOF > trabalho_ci_cd/.env
+                  MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+                  MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+                  MYSQL_USER=${{ secrets.MYSQL_USER }}
+                  MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+                EOF
             fi
             
             # 2. NAVEGAR E ATUALIZAR
