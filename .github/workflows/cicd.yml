@@ -1,0 +1,101 @@
+name: CI/CD - Flask + Docker + EC2
+
+on:
+  push:
+    branches: ["main"] # O pipeline será disparado a cada push no branch 'main'
+
+env:
+  # Define o caminho completo da imagem no Docker Hub
+  # Substitua 'seu-nome-do-repo' pelo nome do seu projeto (ex: trabalho-devops)
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/trabalho_ci_cd
+
+jobs:
+  # -------------------------------
+  # JOB 1: CI (Testes)
+  # -------------------------------
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Instalar Dependências
+        # Assume que requirements.txt está na raiz ou em ./app/
+        run: pip install -r requirements.txt
+
+      - name: 🧪 Rodar Testes Unitários
+        run: pytest # Executa o pytest para validar o código
+
+  # -------------------------------
+  # JOB 2: Build e Push da Imagem
+  # -------------------------------
+  build-and-push:
+    needs: ci # Só executa se os testes passarem
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+      
+      # Tagging: Usa os 7 primeiros caracteres do SHA do commit para garantir uma tag única
+      - name: 🏷️ Definir Tag da Imagem
+        id: vars
+        run: echo "TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        
+      - name: 🔐 Login no DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: ⚙️ Build e Push da Imagem
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Assume que o Dockerfile está na raiz
+          push: true
+          # Publica com a tag 'latest' e a tag baseada no SHA
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ steps.vars.outputs.TAG }}
+
+    outputs:
+      image_tag: ${{ steps.vars.outputs.TAG }} # Passa o valor do SHA para o próximo job
+
+  # -------------------------------
+  # JOB 3: CD (Deploy via SSH)
+  # -------------------------------
+  deploy:
+    needs: build-and-push # Só executa se o build e push tiverem sucesso
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Deploy na EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          # Comando a ser executado no servidor
+          script: |
+            # --- Variáveis ---
+            # Define as variáveis que o docker-compose.prod.yml precisa (IMAGE_TAG e DOCKERHUB_USERNAME)
+            export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            
+            # --- Deploy ---
+            # 1. Navegar até o diretório do projeto (ajuste o nome se for diferente)
+            cd trabalho_ci_cd # EX: cd Trabalho_DevOps
+            
+            # 2. Atualizar o código (para garantir que a versão mais recente do docker-compose.prod.yml está lá)
+            git pull origin main
+            
+            # 3. Puxar a imagem com a tag SHA mais recente
+            docker pull ${DOCKERHUB_USERNAME}/seu-nome-do-repo:$IMAGE_TAG
+            
+            # 4. Parar/remover o container antigo e subir o novo
+            # O --env-file .env carrega todas as credenciais do banco que você criou manualmente
+            # As variáveis IMAGE_TAG e DOCKERHUB_USERNAME são passadas via 'export'
+            docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
