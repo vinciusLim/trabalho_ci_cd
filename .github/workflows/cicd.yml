@@ -137,25 +137,24 @@ jobs:
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             
             # --- Deploy ---
+            # 🛑 ALTERAÇÃO 2: Lógica de Clonagem e Criação do .env
+            if [ ! -d "trabalho_ci_cd" ]; then
+              # Clona o repositório (o git deve estar instalado via user_data.sh)
+              git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
               
-              # 🛑 ALTERAÇÃO 2: Lógica de Clonagem e Criação do .env
-              if [ ! -d "trabalho_ci_cd" ]; then
-                  # Clona o repositório (o git deve estar instalado via user_data.sh)
-                  git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
-                  
-                  # CRIAÇÃO DO ARQUIVO .ENV COM SECRETS (CRUCIAL!)
-                  cat << EOF > trabalho_ci_cd/.env
-                  MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-                  MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} # Substitua pelo seu secret
-                  MYSQL_USER=${{ secrets.MYSQL_USER }}         # Substitua pelo seu secret
-                  MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} # Substitua pelo seu secret
-                  EOF
-              fi
-              
+              # CRIAÇÃO DO ARQUIVO .ENV COM SECRETS (CRUCIAL!)
+              cat << 'EOF' > trabalho_ci_cd/.env
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+            MYSQL_USER=${{ secrets.MYSQL_USER }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+            EOF
+            fi
+            
             # 2. NAVEGAR E ATUALIZAR
             cd trabalho_ci_cd
             git pull origin main
-              
+            
             # 3. Puxar a imagem com a tag SHA mais recente
             docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
             
