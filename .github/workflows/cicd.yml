@@ -101,5 +101,9 @@ jobs:
             docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
             
             # 4. Parar/remover o container antigo e subir o novo
-            docker-compose -f docker-compose.prod.yml down || true
-            docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
+            
+            # Força o uso do binário com o nome antigo (que é o V2 instalado)
+            /usr/bin/docker-compose down -v || true
+            
+            # Sobe o novo
+            /usr/bin/docker-compose up -d --force-recreate --file docker-compose.prod.yml --env-file .env
