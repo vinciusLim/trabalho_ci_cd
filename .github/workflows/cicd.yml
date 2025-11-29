@@ -98,7 +98,7 @@ jobs:
             git pull origin main
             
             # 3. Puxar a imagem com a tag SHA mais recente
-            docker pull ${DOCKERHUB_USERNAME}/seu-nome-do-repo:$IMAGE_TAG
+            docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
             
             # 4. Parar/remover o container antigo e subir o novo
             # O --env-file .env carrega todas as credenciais do banco que você criou manualmente
