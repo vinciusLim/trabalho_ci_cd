@@ -111,31 +111,32 @@ jobs:
           IP_PUBLICO=$(terraform output -raw public_ip)
           echo "ip=$IP_PUBLICO" >> $GITHUB_OUTPUT
 
- # -----------------------------------------------------
- # JOB 4: CD (Deploy via SSH) - IP DINÂMICO
- # -----------------------------------------------------
+  # -----------------------------------------------------
+  # JOB 4: CD (Deploy via SSH) - IP DINÂMICO
+  # -----------------------------------------------------
   deploy:
-  name: 🚀 Deploy na EC2 via SSH
+    name: 🚀 Deploy na EC2 via SSH
     # 🛑 ALTERAÇÃO 1: Adicionar 'build-and-push' para capturar a tag da imagem
-  needs: [build-and-push, provision-infra] 
-  runs-on: ubuntu-latest
-  steps:
-    - name: 📥 Checkout do Código
-      uses: actions/checkout@v4
-    
-    - name: 🚀 Executar Deploy
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-      host: ${{ needs.provision-infra.outputs.server_ip }} 
-      username: ec2-user
-      key: ${{ secrets.SSH_KEY }}
-      
-      script: |
-        # --- Variáveis ---
-        export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-        export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+    needs: [build-and-push, provision-infra]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
         
-        # --- Deploy ---
+      - name: 🚀 Executar Deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          # 🛑 MUDANÇA PRINCIPAL: Usa o IP DINÂMICO gerado pelo Terraform
+          host: ${{ needs.provision-infra.outputs.server_ip }}
+          username: ec2-user
+          key: ${{ secrets.SSH_KEY }}
+          
+          script: |
+            # --- Variáveis ---
+            export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            
+            # --- Deploy ---
               
               # 🛑 ALTERAÇÃO 2: Lógica de Clonagem e Criação do .env
               if [ ! -d "trabalho_ci_cd" ]; then
@@ -151,13 +152,13 @@ jobs:
                 EOF
               fi
               
-        # 2. NAVEGAR E ATUALIZAR
-        cd trabalho_ci_cd
-        git pull origin main
+            # 2. NAVEGAR E ATUALIZAR
+            cd trabalho_ci_cd
+            git pull origin main
               
-        # 3. Puxar a imagem com a tag SHA mais recente
-        docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
-        
-        # 4. Parar/remover o container antigo e subir o novo
-        /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
-        /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
+            # 3. Puxar a imagem com a tag SHA mais recente
+            docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
+            
+            # 4. Parar/remover o container antigo e subir o novo
+            /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
+            /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
