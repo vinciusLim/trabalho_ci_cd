@@ -1,14 +1,74 @@
-name: CI/CD - Flask + Docker + IaC
+name: CI/CD - Flask + Docker + EC2
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main"] # O pipeline será disparado a cada push no branch 'main'
 
 env:
+  # Define o caminho completo da imagem no Docker Hub
+  # Substitua 'seu-nome-do-repo' pelo nome do seu projeto (ex: trabalho-devops)
   DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/trabalho_ci_cd
 
 jobs:
-  # ... (JOB 1: CI e JOB 2: build-and-push permanecem inalterados) ...
+  # -------------------------------
+  # JOB 1: CI (Testes)
+  # -------------------------------
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Instalar Dependências
+        # Assume que requirements.txt está na raiz ou em ./app/
+        working-directory: app
+        run: pip install -r requirements.txt
+
+      - name: 🛠️ Adicionar Projeto ao PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV # Adiciona a raiz do repo ao path
+      
+      - name: 🧪 Rodar Testes Unitários
+        run: pytest # Agora ele encontrará o módulo 'app'
+
+  # -------------------------------
+  # JOB 2: Build e Push da Imagem
+  # -------------------------------
+  build-and-push:
+    needs: ci # Só executa se os testes passarem
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+      
+      # Tagging: Usa os 7 primeiros caracteres do SHA do commit para garantir uma tag única
+      - name: 🏷️ Definir Tag da Imagem
+        id: vars
+        run: echo "TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        
+      - name: 🔐 Login no DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: ⚙️ Build e Push da Imagem
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Assume que o Dockerfile está na raiz
+          file: ./app/Dockerfile
+          push: true
+          # Publica com a tag 'latest' e a tag baseada no SHA
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ steps.vars.outputs.TAG }}
+
+    outputs:
+      image_tag: ${{ steps.vars.outputs.TAG }} # Passa o valor do SHA para o próximo job
 
   # -------------------------------
   # JOB 3: Provisionar Infraestrutura (IaC) - NOVO JOB
