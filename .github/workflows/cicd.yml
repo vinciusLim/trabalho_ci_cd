@@ -103,7 +103,7 @@ jobs:
             # 4. Parar/remover o container antigo e subir o novo
 
             # Força o uso do binário com o nome antigo (que é o V2 instalado)
-            /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
+            /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env down -v || true
             
             # Sobe o novo
-            /usr/bin/docker-compose -f docker-compose.prod.yml up -d --force-recreate --env-file .env
+            /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
