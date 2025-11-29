@@ -137,25 +137,25 @@ jobs:
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             
             # --- Deploy ---
-            # 🛑 ALTERAÇÃO 2: Lógica de Clonagem e Criação do .env
-            if [ ! -d "trabalho_ci_cd" ]; then
-                # Clona o repositório ...
-                git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
-                
-                # CRIAÇÃO DO ARQUIVO .ENV COM SECRETS (CRUCIAL!)
-                cat << EOF > trabalho_ci_cd/.env
-            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
-            MYSQL_USER=${{ secrets.MYSQL_USER }}
-            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
-            EOF
+
+            if ! command -v git &> /dev/null; then
+                sudo yum install -y git
             fi
+
+            # Clona o repositório se não existir
+            if [ ! -d "trabalho_ci_cd" ]; then
+                git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
+            fi
+
+            cd trabalho_ci_cd || exit 1
+
+            # Atualiza o repo
+            git pull origin main      
+
+
+            # Cria .env
+            cat <<- EOF > .env MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} MYSQL_USER=${{ secrets.MYSQL_USER }} MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} EOF
             
-            # 2. NAVEGAR E ATUALIZAR
-            cd trabalho_ci_cd
-            git pull origin main
-            
-            # 3. Puxar a imagem com a tag SHA mais recente
             docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
             
             # 4. Parar/remover o container antigo e subir o novo
