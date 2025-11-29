@@ -143,7 +143,9 @@ jobs:
                   "${{ secrets.MYSQL_ROOT_PASSWORD }}" \
                   "${{ secrets.MYSQL_DATABASE }}" \
                   "${{ secrets.MYSQL_USER }}" \
-                  "${{ secrets.MYSQL_PASSWORD }}" > trabalho_ci_cd/.env
+                  "${{ secrets.MYSQL_PASSWORD }}" \
+                  "${DOCKERHUB_USERNAME}" \
+                  "${IMAGE_TAG}" > trabalho_ci_cd/.env > trabalho_ci_cd/.env
             fi
             
             # 2. NAVEGAR E ATUALIZAR
