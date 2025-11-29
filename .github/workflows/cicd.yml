@@ -26,6 +26,7 @@ jobs:
 
       - name: Instalar Dependências
         # Assume que requirements.txt está na raiz ou em ./app/
+        working-directory: app
         run: pip install -r requirements.txt
 
       - name: 🧪 Rodar Testes Unitários
