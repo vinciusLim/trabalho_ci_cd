@@ -20,4 +20,10 @@ sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 # Adicione a instalação do Git
 sudo yum install -y git
 
+# Cria o arquivo .env com a senha do root do MySQL
+cat > .env << 'EOF'
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            ...
+            EOF
+
 # Nota: A sessão SSH para o deploy será uma nova, então as permissões do grupo docker funcionarão.
