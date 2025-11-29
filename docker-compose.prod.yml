@@ -1,6 +1,6 @@
 services:
   app:
-    build: ./app
+    image: ${DOCKERHUB_USERNAME}/trabalho_ci_cd:${IMAGE_TAG}
     container_name: flask_app
     ports:
       - "5000:5000"
