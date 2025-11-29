@@ -100,7 +100,7 @@ jobs:
         id: apply
         run: |
           cd terraform/
-          terraform init # Configura o backend S3
+          terraform init -upgrade   
           terraform apply -auto-approve
 
       - name: 🔍 Capturar IP Público do Output
@@ -145,4 +145,3 @@ jobs:
             # 4. Parar/remover o container antigo e subir o novo
             /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
             /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
-            
