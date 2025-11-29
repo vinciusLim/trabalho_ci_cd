@@ -29,8 +29,11 @@ jobs:
         working-directory: app
         run: pip install -r requirements.txt
 
+      - name: 🛠️ Adicionar Projeto ao PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV # Adiciona a raiz do repo ao path
+      
       - name: 🧪 Rodar Testes Unitários
-        run: pytest # Executa o pytest para validar o código
+        run: pytest # Agora ele encontrará o módulo 'app'
 
   # -------------------------------
   # JOB 2: Build e Push da Imagem
