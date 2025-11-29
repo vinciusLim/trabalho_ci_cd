@@ -1,109 +1,87 @@
-name: CI/CD - Flask + Docker + EC2
+name: CI/CD - Flask + Docker + IaC
 
 on:
   push:
-    branches: ["main"] # O pipeline será disparado a cada push no branch 'main'
+    branches: ["main"]
 
 env:
-  # Define o caminho completo da imagem no Docker Hub
-  # Substitua 'seu-nome-do-repo' pelo nome do seu projeto (ex: trabalho-devops)
   DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/trabalho_ci_cd
 
 jobs:
+  # ... (JOB 1: CI e JOB 2: build-and-push permanecem inalterados) ...
+
   # -------------------------------
-  # JOB 1: CI (Testes)
+  # JOB 3: Provisionar Infraestrutura (IaC) - NOVO JOB
   # -------------------------------
-  ci:
+  provision-infra:
+    name: 🏗️ Provisionar Infraestrutura
     runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout do Código
-        uses: actions/checkout@v4
-
-      - name: 🐍 Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Instalar Dependências
-        # Assume que requirements.txt está na raiz ou em ./app/
-        working-directory: app
-        run: pip install -r requirements.txt
-
-      - name: 🛠️ Adicionar Projeto ao PYTHONPATH
-        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV # Adiciona a raiz do repo ao path
-      
-      - name: 🧪 Rodar Testes Unitários
-        run: pytest # Agora ele encontrará o módulo 'app'
-
-  # -------------------------------
-  # JOB 2: Build e Push da Imagem
-  # -------------------------------
-  build-and-push:
-    needs: ci # Só executa se os testes passarem
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout do Código
-        uses: actions/checkout@v4
-      
-      # Tagging: Usa os 7 primeiros caracteres do SHA do commit para garantir uma tag única
-      - name: 🏷️ Definir Tag da Imagem
-        id: vars
-        run: echo "TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-        
-      - name: 🔐 Login no DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: ⚙️ Build e Push da Imagem
-        uses: docker/build-push-action@v5
-        with:
-          context: . # Assume que o Dockerfile está na raiz
-          file: ./app/Dockerfile
-          push: true
-          # Publica com a tag 'latest' e a tag baseada no SHA
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:latest
-            ${{ env.DOCKER_IMAGE }}:${{ steps.vars.outputs.TAG }}
-
+    needs: [build-and-push]
+    # Define o output IP que será usado no deploy
     outputs:
-      image_tag: ${{ steps.vars.outputs.TAG }} # Passa o valor do SHA para o próximo job
+      server_ip: ${{ steps.ip_capture.outputs.ip }} 
 
-  # -------------------------------
-  # JOB 3: CD (Deploy via SSH)
-  # -------------------------------
+    steps:
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 🔑 Configurar Credenciais AWS
+        # Necessário para autenticar no Provider AWS e no Backend S3
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # Deve ser a mesma região do main.tf
+
+      - name: ⚙️ Terraform Init e Apply
+        id: apply
+        run: |
+          cd terraform/
+          terraform init # Configura o backend S3
+          terraform apply -auto-approve
+
+      - name: 🔍 Capturar IP Público do Output
+        id: ip_capture
+        run: |
+          cd terraform/
+          # Captura o valor do output 'public_ip'
+          IP_PUBLICO=$(terraform output -raw public_ip)
+          echo "ip=$IP_PUBLICO" >> $GITHUB_OUTPUT
+
+  # -----------------------------------------------------
+  # JOB 4: CD (Deploy via SSH) - IP DINÂMICO
+  # -----------------------------------------------------
   deploy:
-    needs: build-and-push # Só executa se o build e push tiverem sucesso
+    name: 🚀 Deploy na EC2 via SSH
+    needs: [provision-infra] # AGORA DEPENDE DO TERRAFORM
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Deploy na EC2 via SSH
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+        
+      - name: 🚀 Executar Deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
+          # 🛑 MUDANÇA PRINCIPAL: Usa o IP DINÂMICO gerado pelo Terraform
+          host: ${{ needs.provision-infra.outputs.server_ip }} 
+          username: ec2-user
           key: ${{ secrets.SSH_KEY }}
-          # Comando a ser executado no servidor
+          
           script: |
+            # ... (Scripts de variáveis, pull, e deploy permanecem os mesmos) ...
+            
             # --- Variáveis ---
-            # Define as variáveis que o docker-compose.prod.yml precisa (IMAGE_TAG e DOCKERHUB_USERNAME)
             export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             
             # --- Deploy ---
-            # 1. Navegar até o diretório do projeto (ajuste o nome se for diferente)
-            cd trabalho_ci_cd # EX: cd Trabalho_DevOps
-            
-            # 2. Atualizar o código (para garantir que a versão mais recente do docker-compose.prod.yml está lá)
+            cd trabalho_ci_cd
             git pull origin main
-            
-            # 3. Puxar a imagem com a tag SHA mais recente
             docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
             
             # 4. Parar/remover o container antigo e subir o novo
-
-            # Força o uso do binário com o nome antigo (que é o V2 instalado)
-            /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env down -v || true
-            
-            # Sobe o novo
+            /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
             /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
