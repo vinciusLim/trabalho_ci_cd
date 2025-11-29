@@ -101,6 +101,9 @@ jobs:
             docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
             
             # 4. Parar/remover o container antigo e subir o novo
-            # O --env-file .env carrega todas as credenciais do banco que você criou manualmente
-            # As variáveis IMAGE_TAG e DOCKERHUB_USERNAME são passadas via 'export'
-            docker compose up -d --force-recreate --file docker-compose.prod.yml --env-file .env
+
+            # 4a. Parar e remover serviços antigos (Ignora erro se não existir)
+              docker compose down || true 
+
+            # 4b. Subir os novos serviços, garantindo a ordem das flags
+            docker compose up --force-recreate --file docker-compose.prod.yml --env-file .env -d
