@@ -17,4 +17,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 # 4. Cria o link simbólico que o script de deploy espera
 sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
+# Adicione a instalação do Git
+sudo yum install -y git
+
 # Nota: A sessão SSH para o deploy será uma nova, então as permissões do grupo docker funcionarão.

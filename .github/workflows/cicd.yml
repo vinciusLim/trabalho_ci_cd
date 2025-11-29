@@ -111,37 +111,53 @@ jobs:
           IP_PUBLICO=$(terraform output -raw public_ip)
           echo "ip=$IP_PUBLICO" >> $GITHUB_OUTPUT
 
-  # -----------------------------------------------------
-  # JOB 4: CD (Deploy via SSH) - IP DINÂMICO
-  # -----------------------------------------------------
+ # -----------------------------------------------------
+ # JOB 4: CD (Deploy via SSH) - IP DINÂMICO
+ # -----------------------------------------------------
   deploy:
-    name: 🚀 Deploy na EC2 via SSH
-    needs: [provision-infra] # AGORA DEPENDE DO TERRAFORM
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout do Código
-        uses: actions/checkout@v4
+  name: 🚀 Deploy na EC2 via SSH
+    # 🛑 ALTERAÇÃO 1: Adicionar 'build-and-push' para capturar a tag da imagem
+  needs: [build-and-push, provision-infra] 
+  runs-on: ubuntu-latest
+  steps:
+    - name: 📥 Checkout do Código
+      uses: actions/checkout@v4
+    
+    - name: 🚀 Executar Deploy
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+      host: ${{ needs.provision-infra.outputs.server_ip }} 
+      username: ec2-user
+      key: ${{ secrets.SSH_KEY }}
+      
+      script: |
+        # --- Variáveis ---
+        export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+        export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
         
-      - name: 🚀 Executar Deploy
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          # 🛑 MUDANÇA PRINCIPAL: Usa o IP DINÂMICO gerado pelo Terraform
-          host: ${{ needs.provision-infra.outputs.server_ip }} 
-          username: ec2-user
-          key: ${{ secrets.SSH_KEY }}
-          
-          script: |
-            # ... (Scripts de variáveis, pull, e deploy permanecem os mesmos) ...
-            
-            # --- Variáveis ---
-            export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            
-            # --- Deploy ---
-            cd trabalho_ci_cd
-            git pull origin main
-            docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
-            
-            # 4. Parar/remover o container antigo e subir o novo
-            /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
-            /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
+        # --- Deploy ---
+              
+              # 🛑 ALTERAÇÃO 2: Lógica de Clonagem e Criação do .env
+              if [ ! -d "trabalho_ci_cd" ]; then
+                # Clona o repositório (o git deve estar instalado via user_data.sh)
+                git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
+                
+                # CRIAÇÃO DO ARQUIVO .ENV COM SECRETS (CRUCIAL!)
+                cat << EOF > trabalho_ci_cd/.env
+                MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+                MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} # Substitua pelo seu secret
+                MYSQL_USER=${{ secrets.MYSQL_USER }}         # Substitua pelo seu secret
+                MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} # Substitua pelo seu secret
+                EOF
+              fi
+              
+        # 2. NAVEGAR E ATUALIZAR
+        cd trabalho_ci_cd
+        git pull origin main
+              
+        # 3. Puxar a imagem com a tag SHA mais recente
+        docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
+        
+        # 4. Parar/remover o container antigo e subir o novo
+        /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
+        /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
