@@ -145,3 +145,4 @@ jobs:
             # 4. Parar/remover o container antigo e subir o novo
             /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
             /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
+            
