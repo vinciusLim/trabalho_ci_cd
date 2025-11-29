@@ -121,7 +121,7 @@ jobs:
     steps:
       - name: 📥 Checkout do Código
         uses: actions/checkout@v4
-        
+
       - name: 🚀 Executar Deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -131,18 +131,16 @@ jobs:
           port: 22
           timeout: 30s
           command_timeout: 10m
-          
           script: |
             # --- Variáveis ---
             export IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            
+
             # --- Deploy ---
             if [ ! -d "trabalho_ci_cd" ]; then
-                # Clona o repositório
                 git clone https://github.com/${{ github.repository_owner }}/trabalho_ci_cd.git
-                
-                # Criação do arquivo .env (sem indentação!)
+
+                # Criação do arquivo .env sem indentação
                 cat <<EOF > trabalho_ci_cd/.env
   MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
   MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
@@ -150,14 +148,9 @@ jobs:
   MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
   EOF
             fi
-            
-            # Navegar e atualizar
+
             cd trabalho_ci_cd
             git pull origin main
-            
-            # Puxar a imagem mais recente
             docker pull ${DOCKERHUB_USERNAME}/trabalho_ci_cd:$IMAGE_TAG
-            
-            # Parar/remover o container antigo e subir o novo
             /usr/bin/docker-compose -f docker-compose.prod.yml down -v || true
             /usr/bin/docker-compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
