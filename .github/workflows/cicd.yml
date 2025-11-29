@@ -60,6 +60,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: . # Assume que o Dockerfile está na raiz
+          file: ./app/Dockerfile
           push: true
           # Publica com a tag 'latest' e a tag baseada no SHA
           tags: |
