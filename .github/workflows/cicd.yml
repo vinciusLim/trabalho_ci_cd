@@ -103,4 +103,4 @@ jobs:
             # 4. Parar/remover o container antigo e subir o novo
             # O --env-file .env carrega todas as credenciais do banco que você criou manualmente
             # As variáveis IMAGE_TAG e DOCKERHUB_USERNAME são passadas via 'export'
-            docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
+            docker compose --file docker-compose.prod.yml --env-file .env up -d --force-recreate
